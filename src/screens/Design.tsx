@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import { CATEGORY_LABELS, CATEGORY_ORDER, PARTS, PARTS_BY_ID, SINGLE_CHOICE } from '../data/parts';
 import { analyzeDesign, fmtMb, linkMbPerDay, scienceMultiplier, solarW } from '../engine/design';
+import type { Trajectory } from '../engine/orbit/transfer';
 import type { Destination, Part, Rocket } from '../engine/types';
 import BudgetPanel from '../ui/BudgetPanel';
 
 interface Props {
   dest: Destination;
+  trajectory: Trajectory;
   selection: string[];
   rocket?: Rocket;
   onChange: (ids: string[]) => void;
@@ -13,10 +15,10 @@ interface Props {
   onNext: () => void;
 }
 
-export default function Design({ dest, selection, rocket, onChange, onBack, onNext }: Props) {
-  const report = useMemo(() => analyzeDesign(dest, selection, rocket), [dest, selection, rocket]);
+export default function Design({ dest, trajectory, selection, rocket, onChange, onBack, onNext }: Props) {
+  const report = useMemo(() => analyzeDesign(dest, selection, trajectory, rocket), [dest, selection, trajectory, rocket]);
   // En esta pantalla solo bloquean los errores de diseño; masa vs cohete se revisa al lanzar
-  const designErrors = useMemo(() => analyzeDesign(dest, selection).errors, [dest, selection]);
+  const designErrors = useMemo(() => analyzeDesign(dest, selection, trajectory).errors, [dest, selection, trajectory]);
 
   const toggle = (part: Part) => {
     if (selection.includes(part.id)) {

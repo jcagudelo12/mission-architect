@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ROCKETS } from './data/rockets';
+import type { Trajectory } from './engine/orbit/transfer';
 import { randomSeed } from './engine/rng';
 import { simulate, type SimResult } from './engine/simulation';
 import type { Destination } from './engine/types';
@@ -8,11 +9,13 @@ import Launch from './screens/Launch';
 import MissionSelect from './screens/MissionSelect';
 import Operations from './screens/Operations';
 import Results from './screens/Results';
+import TrajectoryPlanner from './screens/TrajectoryPlanner';
 
-type Screen = 'select' | 'design' | 'launch' | 'ops' | 'results';
+type Screen = 'select' | 'trajectory' | 'design' | 'launch' | 'ops' | 'results';
 
 const STEPS: { id: Screen; label: string }[] = [
   { id: 'select', label: 'Concepto' },
+  { id: 'trajectory', label: 'Trayectoria' },
   { id: 'design', label: 'Diseño' },
   { id: 'launch', label: 'Lanzamiento' },
   { id: 'ops', label: 'Operación' },
@@ -22,6 +25,7 @@ const STEPS: { id: Screen; label: string }[] = [
 export default function App() {
   const [screen, setScreen] = useState<Screen>('select');
   const [dest, setDest] = useState<Destination | null>(null);
+  const [trajectory, setTrajectory] = useState<Trajectory | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
   const [rocketId, setRocketId] = useState<string | null>(null);
   const [seed, setSeed] = useState(randomSeed);
@@ -31,13 +35,14 @@ export default function App() {
   const stepIndex = STEPS.findIndex((s) => s.id === screen);
 
   const launch = (s = seed) => {
-    if (!dest || !rocket) return;
-    setSim(simulate(dest, selection, rocket, s));
+    if (!dest || !rocket || !trajectory) return;
+    setSim(simulate(dest, selection, trajectory, rocket, s));
     setScreen('ops');
   };
 
   const newMission = () => {
     setDest(null);
+    setTrajectory(null);
     setSelection([]);
     setRocketId(null);
     setSim(null);
@@ -64,24 +69,39 @@ export default function App() {
         {screen === 'select' && (
           <MissionSelect
             onSelect={(d) => {
+              if (d.id !== dest?.id) {
+                setTrajectory(null);
+                setRocketId(null);
+              }
               setDest(d);
-              setScreen('design');
+              setScreen('trajectory');
             }}
           />
         )}
-        {screen === 'design' && dest && (
+        {screen === 'trajectory' && dest && (
+          <TrajectoryPlanner
+            dest={dest}
+            selected={trajectory}
+            onSelect={setTrajectory}
+            onBack={() => setScreen('select')}
+            onNext={() => setScreen('design')}
+          />
+        )}
+        {screen === 'design' && dest && trajectory && (
           <Design
             dest={dest}
+            trajectory={trajectory}
             selection={selection}
             rocket={rocket}
             onChange={setSelection}
-            onBack={() => setScreen('select')}
+            onBack={() => setScreen('trajectory')}
             onNext={() => setScreen('launch')}
           />
         )}
-        {screen === 'launch' && dest && (
+        {screen === 'launch' && dest && trajectory && (
           <Launch
             dest={dest}
+            trajectory={trajectory}
             selection={selection}
             rocketId={rocketId}
             seed={seed}

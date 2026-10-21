@@ -1,7 +1,11 @@
 import { PARTS_BY_ID } from '../data/parts';
+import type { Trajectory } from './orbit/transfer';
 import type { Destination, Part, Rocket } from './types';
 
 export const G0 = 9.81;
+/** Curva simplificada de rendimiento del cohete: fracción de la carga a LEO que puede enviar con energía C3 */
+const C3_FRACTION_AT_ZERO = 0.3;
+const C3_SCALE = 50;
 /** Horas diarias de contacto con la Red de Espacio Profundo (DSN) */
 export const DSN_SECONDS_PER_DAY = 4 * 3600;
 /** Constante de enlace calibrada para que una antena de 3 m dé ~0.5 Mbps desde Marte */
@@ -29,8 +33,9 @@ export function scienceMultiplier(part: Part, dest: Destination): number {
   return part.bestFor?.includes(dest.id) ? BEST_FOR_BONUS : 1;
 }
 
-export function rocketCapacityKg(rocket: Rocket, dest: Destination): number {
-  return Math.round(rocket.leoKg * dest.launchFactor);
+/** Cuánta masa puede lanzar el cohete con la energía de salida C3 (km²/s²) */
+export function rocketCapacityKg(rocket: Rocket, c3: number): number {
+  return Math.round(rocket.leoKg * C3_FRACTION_AT_ZERO * Math.exp(-c3 / C3_SCALE));
 }
 
 export interface Allocation {
@@ -119,13 +124,14 @@ export interface DesignReport {
   radiationEff: number;
   cruiseDays: number;
   capacityKg?: number;
+  trajectory: Trajectory;
   /** Problemas que impiden lanzar */
   errors: string[];
   /** Avisos que no bloquean pero afectan el resultado */
   warnings: string[];
 }
 
-export function analyzeDesign(dest: Destination, ids: string[], rocket?: Rocket): DesignReport {
+export function analyzeDesign(dest: Destination, ids: string[], trajectory: Trajectory, rocket?: Rocket): DesignReport {
   const parts = ids.map((id) => PARTS_BY_ID[id]).filter((p): p is Part => Boolean(p));
   const of = (cat: Part['category']) => parts.filter((p) => p.category === cat);
   const bus = of('bus')[0];
@@ -138,7 +144,7 @@ export function analyzeDesign(dest: Destination, ids: string[], rocket?: Rocket)
 
   // Masa y combustible (ecuación de Tsiolkovsky)
   const dryParts = parts.reduce((s, p) => s + p.massKg, 0);
-  const deltaVKms = dest.insertionDvKms * 1.1 + 0.1;
+  const deltaVKms = trajectory.spacecraftDvKms;
   let propellantKg = 0;
   if (propulsion?.isp) {
     const ratio = Math.exp((deltaVKms * 1000) / (propulsion.isp * G0));
@@ -176,14 +182,14 @@ export function analyzeDesign(dest: Destination, ids: string[], rocket?: Rocket)
   const shield = Math.max(0, ...parts.map((p) => p.shield ?? 0));
   const radiationEff = 1 + (dest.radiation - 1) * (1 - shield);
 
-  const cruiseDays = Math.round(dest.cruiseDays * (propulsion?.cruiseTimeFactor ?? 1));
+  const cruiseDays = Math.max(1, Math.round(trajectory.tofDays));
 
   // Costos
   const partsCostM = parts.reduce((s, p) => s + p.costM, 0);
   const rocketCostM = rocket?.costM ?? 0;
   const opsCostM = (dest.opsCostPerYearM * (cruiseDays + dest.opsDays)) / 365;
   const totalCostM = partsCostM + rocketCostM + opsCostM;
-  const capacityKg = rocket ? rocketCapacityKg(rocket, dest) : undefined;
+  const capacityKg = rocket ? rocketCapacityKg(rocket, trajectory.c3) : undefined;
 
   // Validaciones que bloquean
   if (!bus) errors.push('Elige una estructura (bus).');
@@ -197,11 +203,6 @@ export function analyzeDesign(dest: Destination, ids: string[], rocket?: Rocket)
     errors.push(
       `En ${dest.name} generas ${Math.round(powerGenW)} W pero la nave consume ${Math.round(basePowerW)} W sin encender ningún instrumento.`,
     );
-  if (propulsion?.cruisePowerW) {
-    const at1AU = power.reduce((s, p) => s + solarW(p, 1) + (p.rtgW ?? 0), 0);
-    if (at1AU < propulsion.cruisePowerW)
-      errors.push(`El motor iónico necesita ${propulsion.cruisePowerW} W y solo generas ${Math.round(at1AU)} W cerca de la Tierra.`);
-  }
   if (totalCostM > dest.budgetM)
     errors.push(`Te pasas del presupuesto por $${Math.round(totalCostM - dest.budgetM)} M.`);
   if (capacityKg !== undefined && wetMassKg > capacityKg)
@@ -250,6 +251,7 @@ export function analyzeDesign(dest: Destination, ids: string[], rocket?: Rocket)
     radiationEff,
     cruiseDays,
     capacityKg,
+    trajectory,
     errors,
     warnings,
   };

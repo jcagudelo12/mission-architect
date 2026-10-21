@@ -1,3 +1,5 @@
+import type { BodyId } from './orbit/bodies';
+
 export type DestinationId = 'moon' | 'mars' | 'jupiter';
 
 export interface Destination {
@@ -7,17 +9,14 @@ export interface Destination {
   description: string;
   difficulty: 1 | 2 | 3;
   color: string;
+  body: BodyId;
+  /** Cada cuánto se abren ventanas de lanzamiento (texto para el jugador) */
+  windowNote: string;
+  typicalTrip: string;
   /** Distancia media al Sol (UA): define cuánta energía solar llega */
   sunDistanceAU: number;
-  /** Distancia media a la Tierra (UA): define la tasa de comunicaciones */
+  /** Distancia media a la Tierra (UA): estimación de comunicaciones al diseñar */
   earthDistanceAU: number;
-  /** Periodo orbital del destino (días), solo para la animación */
-  orbitPeriodDays: number;
-  /** Δv que la nave debe aportar para entrar en órbita (km/s) */
-  insertionDvKms: number;
-  /** Fracción de la capacidad a LEO que un cohete puede enviar hacia este destino */
-  launchFactor: number;
-  cruiseDays: number;
   opsDays: number;
   /** Multiplicador de fallas por radiación (1 = entorno benigno) */
   radiation: number;
@@ -46,8 +45,6 @@ export interface Part {
   maxInstruments?: number;
   // propulsión
   isp?: number;
-  cruisePowerW?: number;
-  cruiseTimeFactor?: number;
   // energía
   solarW1AU?: number;
   rtgW?: number;
@@ -92,6 +89,9 @@ export interface Sample {
   downlinkMb: number;
   science: number;
   activeInstruments: number;
+  /** Distancias reales de la nave al Sol y a la Tierra (UA) */
+  sunDistanceAU: number;
+  earthDistanceAU: number;
 }
 
 export type Outcome = 'success' | 'partial' | 'failure';

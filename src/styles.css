@@ -712,3 +712,303 @@ main {
     display: none;
   }
 }
+
+/* --- Trayectoria --- */
+.route-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.route-tab {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  cursor: pointer;
+}
+
+.route-tab.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.route-tab p {
+  font-size: 0.85rem;
+  margin: 6px 0 10px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+
+.traj-grid {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 24px;
+  align-items: start;
+}
+
+.traj-grid .panel + .panel {
+  margin-top: 16px;
+}
+
+.chart-box {
+  position: relative;
+}
+
+.chart-box svg {
+  width: 100%;
+  display: block;
+}
+
+.chart-loading {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+
+.legend span.active {
+  color: var(--text);
+}
+
+.legend i,
+.tooltip i {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.legend .dim {
+  margin-left: auto;
+}
+
+.grid {
+  stroke: #ffffff12;
+}
+
+.axis-label {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.axis-label.end {
+  text-anchor: end;
+}
+
+.axis-label.middle {
+  text-anchor: middle;
+}
+
+.series {
+  fill: none;
+  stroke-width: 1.5;
+  opacity: 0.45;
+}
+
+.series.active {
+  stroke-width: 2;
+  opacity: 1;
+}
+
+.selected-line {
+  stroke: var(--text);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.crosshair {
+  stroke: #ffffff55;
+  stroke-width: 1;
+}
+
+.window-dot {
+  fill: var(--panel);
+  stroke-width: 2;
+}
+
+.hover-dot {
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.tooltip {
+  position: absolute;
+  top: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  pointer-events: none;
+  display: grid;
+  gap: 3px;
+  white-space: nowrap;
+  box-shadow: 0 6px 20px #0008;
+}
+
+.window-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 0.8rem;
+}
+
+.chip-btn {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.chip-btn.selected,
+.chip-btn:hover {
+  border-color: var(--accent);
+}
+
+.pc-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+.pc-scale {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.pc-scale i {
+  width: 120px;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.pc-selected {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.pc-hover {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1;
+}
+
+.explain summary {
+  cursor: pointer;
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+.explain ul {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.explain strong {
+  color: var(--text);
+}
+
+.traj-stats hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 10px 0;
+}
+
+.flyby-line {
+  margin: 8px 0;
+  padding: 6px 8px;
+  border-left: 3px solid var(--ok);
+  background: #3ccf8e10;
+  border-radius: 4px;
+}
+
+.flyby-line .stat-line {
+  margin: 0 0 4px;
+}
+
+.flyby-line .stat-sub {
+  margin: 0;
+}
+
+.stat-line.total {
+  font-size: 0.95rem;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+/* Vista orbital: trayectoria recorrida, marcas de eventos y recuadro ampliado */
+.travelled {
+  fill: none;
+  stroke: var(--accent-2);
+  stroke-width: 2;
+}
+
+.event-marker {
+  fill: none;
+  stroke: #ffffff40;
+  stroke-dasharray: 2 2;
+}
+
+.orbit-label.small {
+  font-size: 9px;
+}
+
+.inset-bg {
+  fill: #070b16ee;
+  stroke: var(--line);
+}
+
+.inset-ship {
+  fill: #fff;
+}
+
+.inset-title {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.inset-detail {
+  fill: var(--muted);
+  font-size: 9.5px;
+}
+
+@media (max-width: 1100px) {
+  .traj-grid {
+    grid-template-columns: 1fr;
+  }
+}

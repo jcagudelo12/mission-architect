@@ -1,4 +1,7 @@
 import { allocate, analyzeDesign, linkMbPerDay, solarW, type DesignReport } from './design';
+import { AU_KM, BODIES, helioState, moonState } from './orbit/bodies';
+import { shipPosition, type Trajectory } from './orbit/transfer';
+import { angleBetween, norm, scale, sub } from './orbit/vec';
 import { mulberry32 } from './rng';
 import type { Destination, EventKind, Outcome, Part, Phase, Rocket, Sample, SimEvent } from './types';
 
@@ -19,6 +22,8 @@ export interface SimResult {
   failedParts: Part[];
   shedDays: number;
   blackoutDays: number;
+  /** Días sin contacto porque el Sol estaba entre la Tierra y la nave */
+  conjunctionDays: number;
   lostDataMb: number;
   score: number;
 }
@@ -29,9 +34,28 @@ const P_MICROMETEOROID = 1 / 2500;
 const P_COMMS_ANOMALY = 1 / 450;
 const P_SAFE_MODE = 1 / 500;
 const CRUISE_INSTRUMENT_WEAR = 0.3;
+/** Si el Sol queda a menos de este ángulo de la nave vista desde la Tierra, no hay comunicación */
+const CONJUNCTION_DEG = 2;
+/** Un sobrevuelo con más Δv que esto necesita el motor encendido */
+const POWERED_FLYBY_KMS = 0.05;
 
-export function simulate(dest: Destination, ids: string[], rocket: Rocket, seed: number): SimResult {
-  const report = analyzeDesign(dest, ids, rocket);
+/** Distancias reales al Sol y a la Tierra (UA), y si hay conjunción solar, para un día de misión */
+function geometry(dest: Destination, traj: Trajectory, day: number, inOrbit: boolean) {
+  const abs = traj.launchDay + day;
+  if (traj.central === 'Earth') {
+    const pos = inOrbit ? moonState(abs).r : shipPosition(traj, abs);
+    return { sunAU: 1, earthAU: norm(pos) / AU_KM, conjunction: false };
+  }
+  const earth = helioState('Earth', abs).r;
+  const pos = inOrbit ? helioState(dest.body, abs).r : shipPosition(traj, abs);
+  const toShip = sub(pos, earth);
+  const toSun = scale(earth, -1);
+  const conjunction = (angleBetween(toShip, toSun) * 180) / Math.PI < CONJUNCTION_DEG;
+  return { sunAU: norm(pos) / AU_KM, earthAU: norm(toShip) / AU_KM, conjunction };
+}
+
+export function simulate(dest: Destination, ids: string[], traj: Trajectory, rocket: Rocket, seed: number): SimResult {
+  const report = analyzeDesign(dest, ids, traj, rocket);
   const rng = mulberry32(seed);
   const { parts, bus, propulsion, cruiseDays } = report;
   const totalDays = cruiseDays + dest.opsDays;
@@ -53,11 +77,14 @@ export function simulate(dest: Destination, ids: string[], rocket: Rocket, seed:
   let safeModeUntil = -1;
   let shedDays = 0;
   let blackoutDays = 0;
+  let conjunctionDays = 0;
+  let inConjunction = false;
   let lostDataMb = 0;
   let inserted = false;
   let lostReason: string | undefined;
   let endDay = totalDays;
   const sampleEvery = Math.max(1, Math.round(totalDays / 300));
+  const flybys = new Map(traj.flybys.map((f) => [Math.max(1, Math.round(f.day - traj.launchDay)), f]));
 
   const fail = (day: number, p: Part, cause: string) => {
     alive.delete(p.id);
@@ -77,7 +104,11 @@ export function simulate(dest: Destination, ids: string[], rocket: Rocket, seed:
     log(0, 'danger', lostReason);
     endDay = 0;
   } else {
-    log(0, 'good', `Separación exitosa. Rumbo a ${dest.name}: ${cruiseDays} días de crucero.`);
+    log(
+      0,
+      'good',
+      `Separación exitosa con C3 = ${traj.c3.toFixed(1)} km²/s². Rumbo a ${dest.name}: ${cruiseDays} días de crucero.`,
+    );
   }
 
   for (let day = 1; day <= totalDays && !lostReason; day++) {
@@ -131,12 +162,28 @@ export function simulate(dest: Destination, ids: string[], rocket: Rocket, seed:
     }
 
     // Fallas críticas
-    const sunAU = phase === 'cruise' ? 1 + (dest.sunDistanceAU - 1) * (day / cruiseDays) : dest.sunDistanceAU;
-    const gen = powerAt(sunAU);
+    const geo = geometry(dest, traj, day, phase === 'ops');
+    const gen = powerAt(geo.sunAU);
     const comms = parts.filter((p) => p.category === 'comms' && alive.has(p.id));
     if (!isAlive(bus)) lostReason = 'La computadora principal falló y la nave quedó a la deriva.';
     else if (gen <= 0) lostReason = 'La nave se quedó sin ninguna fuente de energía.';
     else if (comms.length === 0) lostReason = 'Todas las antenas fallaron: perdimos contacto con la nave para siempre.';
+
+    // Sobrevuelos: la gravedad del planeta dobla la trayectoria
+    const flyby = flybys.get(day);
+    if (!lostReason && flyby && day < cruiseDays) {
+      const name = BODIES[flyby.body].name;
+      if (flyby.dvKms > POWERED_FLYBY_KMS && !isAlive(propulsion)) {
+        lostReason = `Sin propulsión no pudimos hacer el encendido del sobrevuelo de ${name}: la nave se desvió para siempre.`;
+      } else {
+        const gain = flyby.gainKms >= 0 ? `ganó ${flyby.gainKms.toFixed(1)}` : `perdió ${(-flyby.gainKms).toFixed(1)}`;
+        log(
+          day,
+          'good',
+          `Sobrevuelo de ${name} a ${Math.round(flyby.altitudeKm).toLocaleString('es')} km: su gravedad dobló la trayectoria ${flyby.turnDeg.toFixed(0)}° y la nave ${gain} km/s respecto al Sol.`,
+        );
+      }
+    }
 
     // Inserción orbital
     if (!lostReason && day === cruiseDays) {
@@ -144,7 +191,11 @@ export function simulate(dest: Destination, ids: string[], rocket: Rocket, seed:
       else if (rng() > (redundancy ? 0.99 : 0.96)) lostReason = 'La maniobra de inserción orbital falló y la nave se perdió.';
       else {
         inserted = true;
-        log(day, 'good', `¡Inserción orbital exitosa en ${dest.name}! Comienza la fase científica.`);
+        log(
+          day,
+          'good',
+          `¡Inserción orbital exitosa en ${dest.name}! Frenamos ${traj.insertionDvKms.toFixed(2)} km/s. Comienza la fase científica.`,
+        );
       }
     }
 
@@ -159,12 +210,25 @@ export function simulate(dest: Destination, ids: string[], rocket: Rocket, seed:
     let use = base;
     let downlink = 0;
     let active = 0;
+    if (phase === 'ops' && geo.conjunction !== inConjunction) {
+      inConjunction = geo.conjunction;
+      log(
+        day,
+        inConjunction ? 'warning' : 'info',
+        inConjunction
+          ? `Conjunción solar: el Sol quedó entre la Tierra y ${dest.name}. Sin comunicación hasta que pase.`
+          : 'Terminó la conjunción solar: se recupera el contacto.',
+      );
+    }
     if (phase === 'ops') {
-      if (day <= blackoutUntil || day <= safeModeUntil) {
+      if (geo.conjunction) {
+        blackoutDays++;
+        conjunctionDays++;
+      } else if (day <= blackoutUntil || day <= safeModeUntil) {
         blackoutDays++;
       } else {
         const instruments = parts.filter((p) => p.category === 'instrument' && alive.has(p.id));
-        const link = Math.max(0, ...comms.map((c) => linkMbPerDay(c, dest.earthDistanceAU)));
+        const link = Math.max(0, ...comms.map((c) => linkMbPerDay(c, geo.earthAU)));
         const alloc = allocate(instruments, gen - base, link, dest);
         const factor = report.eclipseFactor;
         science += alloc.science * factor;
@@ -175,12 +239,20 @@ export function simulate(dest: Destination, ids: string[], rocket: Rocket, seed:
         downlink = alloc.returnedMb;
         active = alloc.active.length;
       }
-    } else if (propulsion?.cruisePowerW && isAlive(propulsion)) {
-      use = base + propulsion.cruisePowerW;
     }
 
     if (day % sampleEvery === 0 || day === totalDays) {
-      samples.push({ day, phase, powerGenW: gen, powerUseW: use, downlinkMb: downlink, science, activeInstruments: active });
+      samples.push({
+        day,
+        phase,
+        powerGenW: gen,
+        powerUseW: use,
+        downlinkMb: downlink,
+        science,
+        activeInstruments: active,
+        sunDistanceAU: geo.sunAU,
+        earthDistanceAU: geo.earthAU,
+      });
     }
   }
 
@@ -207,6 +279,7 @@ export function simulate(dest: Destination, ids: string[], rocket: Rocket, seed:
     failedParts,
     shedDays,
     blackoutDays,
+    conjunctionDays,
     lostDataMb,
     score,
   };

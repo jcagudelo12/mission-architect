@@ -31,8 +31,10 @@ export default function MissionSelect({ onSelect }: Props) {
               <dd>${d.budgetM} M</dd>
               <dt>Meta científica</dt>
               <dd>{d.scienceTarget.toLocaleString('es')} pts</dd>
-              <dt>Viaje</dt>
-              <dd>{d.cruiseDays < 30 ? `${d.cruiseDays} días` : `${(d.cruiseDays / 365).toFixed(1)} años`}</dd>
+              <dt>Viaje típico</dt>
+              <dd>{d.typicalTrip}</dd>
+              <dt>Ventanas de lanzamiento</dt>
+              <dd>{d.windowNote}</dd>
               <dt>Luz solar</dt>
               <dd>{Math.round(100 / d.sunDistanceAU ** 2)} %</dd>
               <dt>Radiación</dt>

@@ -73,20 +73,6 @@ export const PARTS: Part[] = [
     failPerYear: 0.015,
     isp: 320,
   },
-  {
-    id: 'prop-ion',
-    name: 'Motor iónico',
-    category: 'propulsion',
-    description:
-      'Isp de 3000 s: casi no necesita combustible, pero consume 2500 W en crucero y alarga el viaje un 30 %.',
-    massKg: 60,
-    costM: 45,
-    powerW: 0,
-    failPerYear: 0.02,
-    isp: 3000,
-    cruisePowerW: 2500,
-    cruiseTimeFactor: 1.3,
-  },
 
   // --- Energía ---
   {

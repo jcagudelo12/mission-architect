@@ -1,7 +1,7 @@
 import type { Rocket } from '../engine/types';
 
 // Capacidad a órbita baja (LEO) y costos aproximados; la capacidad hacia cada destino
-// se calcula con el launchFactor del destino.
+// depende de la energía de salida (C3) de la trayectoria elegida.
 export const ROCKETS: Rocket[] = [
   {
     id: 'electron',

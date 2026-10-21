@@ -28,7 +28,8 @@ export default function BudgetPanel({ dest, report: r }: Props) {
       )}
       <div className="stat-sub">
         Seca {Math.round(r.dryMassKg)} kg + combustible {Number.isFinite(r.propellantKg) ? Math.round(r.propellantKg) : '∞'} kg para Δv{' '}
-        {r.deltaVKms.toFixed(2)} km/s
+        {r.deltaVKms.toFixed(2)} km/s (inserción {r.trajectory.insertionDvKms.toFixed(2)}
+        {r.trajectory.flybyDvKms > 0.005 && ` + sobrevuelo ${r.trajectory.flybyDvKms.toFixed(2)}`} + correcciones)
       </div>
       <Meter
         label={`Energía en ${dest.name}`}
