@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { ROCKETS } from './data/rockets';
 import type { Trajectory } from './engine/orbit/transfer';
 import { randomSeed } from './engine/rng';
@@ -11,7 +11,10 @@ import Operations from './screens/Operations';
 import Results from './screens/Results';
 import TrajectoryPlanner from './screens/TrajectoryPlanner';
 
-type Screen = 'select' | 'trajectory' | 'design' | 'launch' | 'ops' | 'results';
+// La cabina 3D carga Three.js: solo se descarga al entrar al modo emergencia
+const EmergencyScreen = lazy(() => import('./screens/emergency/EmergencyScreen'));
+
+type Screen = 'select' | 'trajectory' | 'design' | 'launch' | 'ops' | 'results' | 'emergency';
 
 const STEPS: { id: Screen; label: string }[] = [
   { id: 'select', label: 'Concepto' },
@@ -55,19 +58,27 @@ export default function App() {
         <button className="brand" onClick={newMission} title="Nueva misión">
           <span aria-hidden>🛰️</span> Mission Architect
         </button>
-        <ol className="stepper">
-          {STEPS.map((s, i) => (
-            <li key={s.id} className={i === stepIndex ? 'current' : i < stepIndex ? 'done' : ''}>
-              <span className="num">{i + 1}</span> {s.label}
-            </li>
-          ))}
-        </ol>
+        {screen !== 'emergency' && (
+          <ol className="stepper">
+            {STEPS.map((s, i) => (
+              <li key={s.id} className={i === stepIndex ? 'current' : i < stepIndex ? 'done' : ''}>
+                <span className="num">{i + 1}</span> {s.label}
+              </li>
+            ))}
+          </ol>
+        )}
         {dest && <div className="mission-tag">Misión: {dest.name}</div>}
       </header>
 
       <main>
+        {screen === 'emergency' && (
+          <Suspense fallback={<div className="chart-loading">Cargando la cabina…</div>}>
+            <EmergencyScreen onExit={() => setScreen('select')} />
+          </Suspense>
+        )}
         {screen === 'select' && (
           <MissionSelect
+            onEmergency={() => setScreen('emergency')}
             onSelect={(d) => {
               if (d.id !== dest?.id) {
                 setTrajectory(null);

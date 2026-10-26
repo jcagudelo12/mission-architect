@@ -3,9 +3,10 @@ import type { Destination } from '../engine/types';
 
 interface Props {
   onSelect: (d: Destination) => void;
+  onEmergency: () => void;
 }
 
-export default function MissionSelect({ onSelect }: Props) {
+export default function MissionSelect({ onSelect, onEmergency }: Props) {
   return (
     <section className="screen">
       <div className="intro">
@@ -42,6 +43,20 @@ export default function MissionSelect({ onSelect }: Props) {
             </dl>
           </button>
         ))}
+      </div>
+      <div className="mission-mode">
+        <button className="mode-card" onClick={onEmergency}>
+          <span className="icon" aria-hidden>
+            🚨
+          </span>
+          <span>
+            <strong>Modo emergencia (prototipo)</strong>
+            <p>
+              Primera persona en la cabina: la nave quedó girando sin control en ruta a Marte. Prioriza reparaciones antes
+              de que se acabe la energía.
+            </p>
+          </span>
+        </button>
       </div>
     </section>
   );
